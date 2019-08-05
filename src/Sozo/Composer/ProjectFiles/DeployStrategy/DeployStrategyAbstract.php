@@ -327,14 +327,6 @@ abstract class DeployStrategyAbstract
     }
 
     /**
-     * gets the current ignored mappings
-     */
-    public function getIgnoredMappings(): array
-    {
-        return $this->ignoredMappings;
-    }
-
-    /**
      * sets the current ignored mappings
      */
     public function setIgnoredMappings(array $ignoredMappings): self
@@ -343,13 +335,4 @@ abstract class DeployStrategyAbstract
 
         return $this;
     }
-
-    /**
-     * Add a key value pair to mapping
-     */
-    public function addMapping($key, $value): void
-    {
-        $this->mappings[] = [$key, $value];
-    }
-
 }

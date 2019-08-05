@@ -108,11 +108,6 @@ class Installer extends \Composer\Installer\LibraryInstaller
         return;
     }
 
-    public function getDeployManager(): DeployManager
-    {
-        return $this->deployManager;
-    }
-
     public function setDeployManager(DeployManager $deployManager): self
     {
         $this->deployManager = $deployManager;

@@ -77,30 +77,4 @@ class Symlink extends DeployStrategyAbstract
 
         return true;
     }
-
-    /**
-     * Returns the relative path from $from to $to
-     * This is utility method for symlink creation.
-     */
-    public function getRelativePath(string $from, string $to): string
-    {
-        $from = \str_replace(['/./', '//', '\\'], '/', $from);
-        $to = \str_replace(['/./', '//', '\\'], '/', $to);
-
-        if (\is_file($from)) {
-            $from = \dirname($from);
-        } else {
-            $from = \rtrim($from, '/');
-        }
-
-        $dir = \explode('/', $from);
-        $file = \explode('/', $to);
-
-        while ($file && $dir && ($dir[0] === $file[0])) {
-            \array_shift($file);
-            \array_shift($dir);
-        }
-
-        return \str_repeat('../', \count($dir)) . \implode('/', $file);
-    }
 }

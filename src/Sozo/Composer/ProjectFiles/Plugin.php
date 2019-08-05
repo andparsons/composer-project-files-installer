@@ -58,10 +58,8 @@ class Plugin implements \Composer\Plugin\PluginInterface, \Composer\EventDispatc
 
         return;
     }
-
-    /**
-     * event listener is named this way, as it listens for events leading to changed code files
-     */
+    /** @noinspection PhpUnused */
+    /** event listener is named this way, as it listens for events leading to changed code files */
     public function onNewCodeEvent(\Composer\Script\Event $event): void
     {
         if ($this->io->isDebug()) {
