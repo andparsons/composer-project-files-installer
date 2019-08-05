@@ -1,12 +1,8 @@
 <?php declare(strict_types=1);
 
-namespace Sozo\Composer\ProjectFiles;
+namespace Sozo\ProjectFiles;
 
-/**
- * Parser class supporting translating path mappings according to
- * the composer.json configuration.
- */
-abstract class PathTranslationParser implements Parser
+class MapParser implements ParserInterface
 {
     /**
      * Variants on each prefix that path mappings are checked against.
@@ -25,14 +21,27 @@ abstract class PathTranslationParser implements Parser
 
     /** @var string */
     protected $pathSuffix;
+    /** @var array */
+    protected $mappings = [];
 
-    /**
-     * Constructor. Sets the list of path translations to use.
-     */
-    public function __construct(array $translations, string $pathSuffix)
+    public function __construct($mappings, array $translations, string $pathSuffix)
     {
         $this->pathPrefixTranslations = $this->createPrefixVariants($translations);
         $this->pathSuffix = $pathSuffix;
+
+        $this->setMappings($mappings);
+    }
+
+    public function getMappings(): array
+    {
+        return $this->mappings;
+    }
+
+    public function setMappings($mappings): self
+    {
+        $this->mappings = $this->translatePathMappings($mappings);
+
+        return $this;
     }
 
     /**
@@ -78,4 +87,5 @@ abstract class PathTranslationParser implements Parser
         }
         return $mappings;
     }
+
 }

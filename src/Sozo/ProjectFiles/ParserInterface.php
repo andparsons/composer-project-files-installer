@@ -1,8 +1,8 @@
 <?php declare(strict_types=1);
 
-namespace Sozo\Composer\ProjectFiles;
+namespace Sozo\ProjectFiles;
 
-interface Parser
+interface ParserInterface
 {
     /**
      * Return the mappings in an array

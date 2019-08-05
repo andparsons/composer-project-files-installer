@@ -1,9 +1,9 @@
 <?php declare(strict_types=1);
 
-namespace Sozo\Composer\ProjectFiles;
+namespace Sozo\ProjectFiles;
 
-use Sozo\Composer\ProjectFiles\Deploy\Manager\Entry;
-use Sozo\Composer\ProjectFiles\DeployStrategy\Copy;
+use Sozo\ProjectFiles\Deploy\Manager\Entry;
+use Sozo\ProjectFiles\DeployStrategy\Copy;
 
 class DeployManager
 {
@@ -39,27 +39,6 @@ class DeployManager
     public function setSortPriority($priorities): void
     {
         $this->sortPriority = $priorities;
-
-        return;
-    }
-
-    public function doDeploy(): void
-    {
-        $this->sortPackages();
-
-        /** @var Entry $package */
-        foreach ($this->packages as $package) {
-            if ($this->io->isDebug()) {
-                $this->io->write('start deploy for ' . $package->getPackageName());
-            }
-            try {
-                $package->getDeployStrategy()->deploy();
-            } catch (\ErrorException $e) {
-                if ($this->io->isDebug()) {
-                    $this->io->write($e->getMessage());
-                }
-            }
-        }
 
         return;
     }
@@ -103,5 +82,26 @@ class DeployManager
         }
 
         return 100;
+    }
+
+    public function doDeploy(): void
+    {
+        $this->sortPackages();
+
+        /** @var Entry $package */
+        foreach ($this->packages as $package) {
+            if ($this->io->isDebug()) {
+                $this->io->write('start deploy for ' . $package->getPackageName());
+            }
+            try {
+                $package->getDeployStrategy()->deploy();
+            } catch (\ErrorException $e) {
+                if ($this->io->isDebug()) {
+                    $this->io->write($e->getMessage());
+                }
+            }
+        }
+
+        return;
     }
 }

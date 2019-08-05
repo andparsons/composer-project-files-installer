@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-namespace Sozo\Composer\ProjectFiles;
+namespace Sozo\ProjectFiles;
 
 class PackageTypes
 {

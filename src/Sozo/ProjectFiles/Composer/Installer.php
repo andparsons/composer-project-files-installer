@@ -1,9 +1,13 @@
 <?php declare(strict_types=1);
 
-namespace Sozo\Composer\ProjectFiles;
+namespace Sozo\ProjectFiles\Composer;
 
 use Composer\Package\PackageInterface;
 use Composer\Repository\InstalledRepositoryInterface;
+use Sozo\ProjectFiles\DeployManager;
+use Sozo\ProjectFiles\MapParser;
+use Sozo\ProjectFiles\PackageTypes;
+use Sozo\ProjectFiles\ParserInterface;
 
 class Installer extends \Composer\Installer\LibraryInstaller
 {
@@ -95,13 +99,13 @@ class Installer extends \Composer\Installer\LibraryInstaller
     {
         if (!$this->projectRootDir->isDir()) {
             $rootPath = $this->projectRootDir->getPathname();
-            $pathParts = explode(DIRECTORY_SEPARATOR, $rootPath);
-            $baseDir = explode(DIRECTORY_SEPARATOR, $this->vendorDir);
-            array_pop($baseDir);
-            $pathParts = array_merge($baseDir, $pathParts);
+            $pathParts = \explode(\DIRECTORY_SEPARATOR, $rootPath);
+            $baseDir = \explode(\DIRECTORY_SEPARATOR, $this->vendorDir);
+            \array_pop($baseDir);
+            $pathParts = \array_merge($baseDir, $pathParts);
             $directoryPath = '';
             foreach ($pathParts as $pathPart) {
-                $directoryPath .=  $pathPart . DIRECTORY_SEPARATOR;
+                $directoryPath .= $pathPart . \DIRECTORY_SEPARATOR;
                 $this->filesystem->ensureDirectoryExists($directoryPath);
             }
         }
@@ -156,7 +160,7 @@ class Installer extends \Composer\Installer\LibraryInstaller
         } catch (\ErrorException $e) {
             $this->io->write($e->getMessage());
         }
-        $deployManagerEntry = new \Sozo\Composer\ProjectFiles\Deploy\Manager\Entry();
+        $deployManagerEntry = new \Sozo\ProjectFiles\Deploy\Manager\Entry();
         $deployManagerEntry->setPackageName($package->getName());
         $deployManagerEntry->setDeployStrategy($strategy);
         $this->deployManager->addPackage($deployManagerEntry);
@@ -168,7 +172,7 @@ class Installer extends \Composer\Installer\LibraryInstaller
      *
      * @param PackageInterface $package
      * @param string $strategy
-     * @return \Sozo\Composer\ProjectFiles\DeployStrategy\DeployStrategyAbstract
+     * @return \Sozo\ProjectFiles\DeployStrategy\DeployStrategyAbstract
      */
     public function getDeployStrategy(PackageInterface $package, $strategy = null)
     {
@@ -199,14 +203,14 @@ class Installer extends \Composer\Installer\LibraryInstaller
         $sourceDir = $this->getSourceDir($package);
         switch ($strategy) {
             case 'copy':
-                $impl = new \Sozo\Composer\ProjectFiles\DeployStrategy\Copy($sourceDir, $targetDir);
+                $impl = new \Sozo\ProjectFiles\DeployStrategy\Copy($sourceDir, $targetDir);
                 break;
             case 'none':
-                $impl = new \Sozo\Composer\ProjectFiles\DeployStrategy\None($sourceDir, $targetDir);
+                $impl = new \Sozo\ProjectFiles\DeployStrategy\None($sourceDir, $targetDir);
                 break;
             case 'symlink':
             default:
-                $impl = new \Sozo\Composer\ProjectFiles\DeployStrategy\Symlink($sourceDir, $targetDir);
+                $impl = new \Sozo\ProjectFiles\DeployStrategy\Symlink($sourceDir, $targetDir);
         }
         // Inject isForced setting from extra config
         $impl->setIsForced($this->isForced);
@@ -263,7 +267,7 @@ class Installer extends \Composer\Installer\LibraryInstaller
     /**
      * @throws \ErrorException
      */
-    public function getParser(PackageInterface $package): Parser
+    public function getParser(PackageInterface $package): ParserInterface
     {
         $extra = $package->getExtra();
         $moduleSpecificMap = $this->composer->getPackage()->getExtra();

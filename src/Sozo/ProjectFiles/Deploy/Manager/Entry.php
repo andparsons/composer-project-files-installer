@@ -1,8 +1,8 @@
 <?php declare(strict_types=1);
 
-namespace Sozo\Composer\ProjectFiles\Deploy\Manager;
+namespace Sozo\ProjectFiles\Deploy\Manager;
 
-use Sozo\Composer\ProjectFiles\DeployStrategy\DeployStrategyAbstract as DeployStrategy;
+use Sozo\ProjectFiles\DeployStrategy\DeployStrategyAbstract as DeployStrategy;
 
 class Entry
 {

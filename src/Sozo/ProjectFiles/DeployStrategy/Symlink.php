@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-namespace Sozo\Composer\ProjectFiles\DeployStrategy;
+namespace Sozo\ProjectFiles\DeployStrategy;
 
 class Symlink extends DeployStrategyAbstract
 {
