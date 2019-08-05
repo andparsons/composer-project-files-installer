@@ -11,7 +11,6 @@ class PackageTypes
     public static $packageTypes = [
         'sozo-deploy-files' => '/config/deploy/',
         'sozo-build-files' => '/config/build/',
-        'sozo-project-files' => './',
-        'magento2-component' => './'
+        'sozo-project-files' => './'
     ];
 }

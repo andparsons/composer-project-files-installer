@@ -24,7 +24,7 @@ class Installer extends \Composer\Installer\LibraryInstaller
     /**
      * @var string
      */
-    protected $deployStrategy = 'copy';
+    protected $deployStrategy = 'symlink';
 
     /**
      * @var DeployManager
@@ -203,15 +203,15 @@ class Installer extends \Composer\Installer\LibraryInstaller
         $targetDir = $this->getTargetDir();
         $sourceDir = $this->getSourceDir($package);
         switch ($strategy) {
-            case 'symlink':
-                $impl = new \Sozo\Composer\ProjectFiles\DeployStrategy\Symlink($sourceDir, $targetDir);
+            case 'copy':
+                $impl = new \Sozo\Composer\ProjectFiles\DeployStrategy\Copy($sourceDir, $targetDir);
                 break;
             case 'none':
                 $impl = new \Sozo\Composer\ProjectFiles\DeployStrategy\None($sourceDir, $targetDir);
                 break;
-            case 'copy':
+            case 'symlink':
             default:
-                $impl = new \Sozo\Composer\ProjectFiles\DeployStrategy\Copy($sourceDir, $targetDir);
+                $impl = new \Sozo\Composer\ProjectFiles\DeployStrategy\Symlink($sourceDir, $targetDir);
         }
         // Inject isForced setting from extra config
         $impl->setIsForced($this->isForced);
