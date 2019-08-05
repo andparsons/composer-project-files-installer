@@ -65,11 +65,6 @@ class Symlink extends DeployStrategyAbstract
             }
         }
 
-        // Windows doesn't allow relative symlinks
-        if (\stripos(\PHP_OS, 'WIN') !== 0) {
-            $sourcePath = $this->getRelativePath($destPath, $sourcePath);
-        }
-
         // Create symlink
         if (false === \symlink($sourcePath, $destPath)) {
             throw new \ErrorException(\sprintf('An error occurred while creating symlink %s', $sourcePath));

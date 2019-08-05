@@ -103,7 +103,7 @@ class Copy extends DeployStrategyAbstract
                     }
                 }
             } else {
-                \copy($item, $subDestPath);
+                \copy($item->getPathname(), $subDestPath);
             }
             if (!\is_readable($subDestPath)) {
                 throw new \ErrorException(\sprintf('Could not create %s', $subDestPath));
