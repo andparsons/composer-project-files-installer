@@ -4,42 +4,44 @@ namespace Sozo\ProjectFiles\Composer;
 
 use Composer\Package\PackageInterface;
 use Composer\Repository\InstalledRepositoryInterface;
-use Sozo\ProjectFiles\DeployManager;
-use Sozo\ProjectFiles\MapParser;
-use Sozo\ProjectFiles\PackageTypes;
+use Sozo\ProjectFiles\InstallerInterface;
+use Sozo\ProjectFiles\InstallStrategy\InstallStrategyInterface;
 use Sozo\ProjectFiles\ParserInterface;
+use Sozo\ProjectFiles\Types\ExtraTypes;
+use Sozo\ProjectFiles\Types\PackageTypes;
+use Sozo\ProjectFiles\Types\StrategyTypes;
 
-class Installer extends \Composer\Installer\LibraryInstaller
+class ComposerInstaller extends \Composer\Installer\LibraryInstaller implements ComposerInstallerInterface
 {
     /**
      * The base directory of the project
      *
      * @var \SplFileInfo
      */
-    protected $projectRootDir;
+    private $projectRootDir;
 
     /**
      * If set overrides existing files
      *
      * @var bool
      */
-    protected $isForced = false;
+    private $isForced = false;
 
     /**
      * @var string
      */
-    protected $deployStrategy = 'symlink';
+    private $installStrategy = StrategyTypes::SYMLINK;
 
     /**
-     * @var DeployManager
+     * @var InstallerInterface
      */
-    protected $deployManager;
+    private $installer;
 
     /**
      * @var array Path mapping prefixes that need to be translated (i.e. to
      * use a public directory as the web server root).
      */
-    protected $pathMappingTranslations = [];
+    private $pathMappingTranslations = [];
 
     /**
      * @inheritDoc
@@ -67,11 +69,11 @@ class Installer extends \Composer\Installer\LibraryInstaller
             $this->projectRootDir = new \SplFileInfo($dir);
         }
 
-        if (isset($extra['files-deploystrategy'])) {
-            $this->deployStrategy = (string)$extra['files-deploystrategy'];
+        if (isset($extra[ExtraTypes::FILES_STRATEGY])) {
+            $this->installStrategy = (string)$extra[ExtraTypes::FILES_STRATEGY];
         }
 
-        if ($this->deployStrategy !== 'none'
+        if ($this->installStrategy !== StrategyTypes::NONE
             && ($this->projectRootDir === null || false === $this->projectRootDir->isDir())
         ) {
             $dir = $this->projectRootDir instanceof \SplFileInfo ? $this->projectRootDir->getPathname() : '';
@@ -79,16 +81,12 @@ class Installer extends \Composer\Installer\LibraryInstaller
             throw new \ErrorException(\sprintf('root dir "%s" is not valid', $dir));
         }
 
-        if (isset($extra['files-force'])) {
-            $this->isForced = (bool)$extra['files-force'];
+        if (isset($extra[ExtraTypes::FILES_FORCE])) {
+            $this->isForced = (bool)$extra[ExtraTypes::FILES_FORCE];
         }
 
-        if (isset($extra['files-deploystrategy'])) {
-            $this->setDeployStrategy((string)$extra['files-deploystrategy']);
-        }
-
-        if (!empty($extra['path-mapping-translations'])) {
-            $this->pathMappingTranslations = (array)$extra['path-mapping-translations'];
+        if (!empty($extra[ExtraTypes::FILES_TRANSLATIONS])) {
+            $this->pathMappingTranslations = (array)$extra[ExtraTypes::FILES_TRANSLATIONS];
         }
     }
 
@@ -112,9 +110,10 @@ class Installer extends \Composer\Installer\LibraryInstaller
         return;
     }
 
-    public function setDeployManager(DeployManager $deployManager): self
+    /** @inheritDoc */
+    public function setInstaller(InstallerInterface $installer): ComposerInstallerInterface
     {
-        $this->deployManager = $deployManager;
+        $this->installer = $installer;
 
         return $this;
     }
@@ -122,7 +121,7 @@ class Installer extends \Composer\Installer\LibraryInstaller
     /** @inheritDoc */
     public function supports($packageType): bool
     {
-        return \array_key_exists($packageType, PackageTypes::$packageTypes);
+        return \array_key_exists($packageType, PackageTypes::ENUM);
     }
 
     /** @inheritDoc */
@@ -142,90 +141,83 @@ class Installer extends \Composer\Installer\LibraryInstaller
     /**
      * Checks if package has extra map value set
      */
-    private function hasExtraMap(PackageInterface $package): bool
+    protected function hasExtraMap(PackageInterface $package): bool
     {
         $packageExtra = $package->getExtra();
-        if (isset($packageExtra['map'])) {
+        if (isset($packageExtra[ExtraTypes::FILES_MAP])) {
             return true;
         }
 
         return false;
     }
 
-    private function addPackage(PackageInterface $package): void
+    protected function addPackage(PackageInterface $package): void
     {
-        $strategy = $this->getDeployStrategy($package);
+        $strategy = $this->getInstallStrategy($package);
         try {
             $strategy->setMappings($this->getParser($package)->getMappings());
         } catch (\ErrorException $e) {
             $this->io->write($e->getMessage());
         }
-        $deployManagerEntry = new \Sozo\ProjectFiles\Deploy\Manager\Entry();
-        $deployManagerEntry->setPackageName($package->getName());
-        $deployManagerEntry->setDeployStrategy($strategy);
-        $this->deployManager->addPackage($deployManagerEntry);
+        $installInstance = new \Sozo\ProjectFiles\Installer\Instance();
+        $installInstance->setPackageName($package->getName());
+        $installInstance->setInstallStrategy($strategy);
+        $this->installer->addPackage($installInstance);
         return;
     }
 
     /**
-     * Returns the strategy class used for deployment
+     * Returns the strategy class used for install
      *
      * @param PackageInterface $package
      * @param string $strategy
-     * @return \Sozo\ProjectFiles\DeployStrategy\DeployStrategyAbstract
+     * @return InstallStrategyInterface
      */
-    public function getDeployStrategy(PackageInterface $package, $strategy = null)
+    protected function getInstallStrategy(PackageInterface $package, $strategy = null): InstallStrategyInterface
     {
         if (null === $strategy) {
-            $strategy = $this->deployStrategy;
+            $strategy = $this->installStrategy;
         }
         $extra = $this->composer->getPackage()->getExtra();
-        if (isset($extra['files-overwrite'])) {
-            $moduleSpecificDeployStrategies = $this->transformArrayKeysToLowerCase($extra['files-overwrite']);
-            if (isset($moduleSpecificDeployStrategies[$package->getName()])) {
-                $strategy = $moduleSpecificDeployStrategies[$package->getName()];
+        if (isset($extra[ExtraTypes::FILES_OVERWRITE])) {
+            $moduleSpecificInstallStrategies = $this->transformArrayKeysToLowerCase($extra[ExtraTypes::FILES_OVERWRITE]);
+            if (isset($moduleSpecificInstallStrategies[$package->getName()])) {
+                $strategy = $moduleSpecificInstallStrategies[$package->getName()];
             }
         }
-        $moduleSpecificDeployIgnores = [];
-        if (isset($extra['files-ignore'])) {
-            $extra['files-ignore'] = $this->transformArrayKeysToLowerCase($extra['files-ignore']);
-            if (isset($extra['files-ignore']['*'])) {
-                $moduleSpecificDeployIgnores = $extra['files-ignore']['*'];
+        $moduleSpecificInstallIgnores = [];
+        if (isset($extra[ExtraTypes::FILES_IGNORE])) {
+            $extra[ExtraTypes::FILES_IGNORE] = $this->transformArrayKeysToLowerCase($extra[ExtraTypes::FILES_IGNORE]);
+            if (isset($extra[ExtraTypes::FILES_IGNORE]['*'])) {
+                $moduleSpecificInstallIgnores = $extra[ExtraTypes::FILES_IGNORE]['*'];
             }
-            if (isset($extra['files-ignore'][$package->getName()])) {
-                $moduleSpecificDeployIgnores = \array_merge(
-                    $moduleSpecificDeployIgnores,
-                    $extra['files-ignore'][$package->getName()]
+            if (isset($extra[ExtraTypes::FILES_IGNORE][$package->getName()])) {
+                $moduleSpecificInstallIgnores = \array_merge(
+                    $moduleSpecificInstallIgnores,
+                    $extra[ExtraTypes::FILES_IGNORE][$package->getName()]
                 );
             }
         }
         $targetDir = $this->getTargetDir();
         $sourceDir = $this->getSourceDir($package);
         switch ($strategy) {
-            case 'copy':
-                $impl = new \Sozo\ProjectFiles\DeployStrategy\Copy($sourceDir, $targetDir);
+            case StrategyTypes::COPY:
+                $impl = new \Sozo\ProjectFiles\InstallStrategy\Copy($sourceDir, $targetDir);
                 break;
-            case 'none':
-                $impl = new \Sozo\ProjectFiles\DeployStrategy\None($sourceDir, $targetDir);
+            case StrategyTypes::NONE:
+                $impl = new \Sozo\ProjectFiles\InstallStrategy\None($sourceDir, $targetDir);
                 break;
-            case 'symlink':
+            case StrategyTypes::SYMLINK:
             default:
-                $impl = new \Sozo\ProjectFiles\DeployStrategy\Symlink($sourceDir, $targetDir);
+                $impl = new \Sozo\ProjectFiles\InstallStrategy\Symlink($sourceDir, $targetDir);
         }
         // Inject isForced setting from extra config
         $impl->setIsForced($this->isForced);
-        $impl->setIgnoredMappings($moduleSpecificDeployIgnores);
+        $impl->setIgnoredMappings($moduleSpecificInstallIgnores);
         return $impl;
     }
 
-    public function setDeployStrategy(string $strategy): self
-    {
-        $this->deployStrategy = $strategy;
-
-        return $this;
-    }
-
-    public function transformArrayKeysToLowerCase(array $array): array
+    protected function transformArrayKeysToLowerCase(array $array): array
     {
         $arrayNew = [];
         foreach ($array as $key => $value) {
@@ -237,7 +229,7 @@ class Installer extends \Composer\Installer\LibraryInstaller
     /**
      * Return the absolute target directory path for package installation
      */
-    public function getTargetDir(): string
+    protected function getTargetDir(): string
     {
         return \realpath($this->projectRootDir->getPathname());
     }
@@ -256,9 +248,9 @@ class Installer extends \Composer\Installer\LibraryInstaller
     {
         $installPath = parent::getInstallPath($package);
 
-        // Make install path absolute. This is needed in the symlink deploy strategies.
+        // Make install path absolute. This is needed in the symlink install strategies.
         if ($installPath[0] !== \DIRECTORY_SEPARATOR && $installPath[1] !== ':') {
-            $installPath = \getcwd().'/'.$installPath;
+            $installPath = \getcwd() . \DIRECTORY_SEPARATOR . $installPath;
         }
 
         return $installPath;
@@ -267,28 +259,29 @@ class Installer extends \Composer\Installer\LibraryInstaller
     /**
      * @throws \ErrorException
      */
-    public function getParser(PackageInterface $package): ParserInterface
+    protected function getParser(PackageInterface $package): ParserInterface
     {
         $extra = $package->getExtra();
-        $moduleSpecificMap = $this->composer->getPackage()->getExtra();
-        if (isset($moduleSpecificMap['files-map-overwrite'])) {
-            $moduleSpecificMap = $this->transformArrayKeysToLowerCase($moduleSpecificMap['files-map-overwrite']);
-            if (isset($moduleSpecificMap[$package->getName()])) {
-                $map = $moduleSpecificMap[$package->getName()];
+        $moduleSpecificExtra = $this->composer->getPackage()->getExtra();
+        if (isset($moduleSpecificExtra[ExtraTypes::FILES_MAP_OVERWRITE])) {
+            $moduleSpecificExtra = $this->transformArrayKeysToLowerCase($moduleSpecificExtra[ExtraTypes::FILES_MAP_OVERWRITE]);
+            if (isset($moduleSpecificExtra[$package->getName()])) {
+                $map = $moduleSpecificExtra[$package->getName()];
             }
         }
-        $suffix = PackageTypes::$packageTypes[$package->getType()];
+        $suffix = PackageTypes::ENUM[$package->getType()];
         if (isset($map)) {
-            $parser = new MapParser($map, $this->pathMappingTranslations, $suffix);
+            $parser = new \Sozo\ProjectFiles\Parser($map, $this->pathMappingTranslations, $suffix);
             return $parser;
         }
 
-        if (isset($extra['map'])) {
-            $parser = new MapParser($extra['map'], $this->pathMappingTranslations, $suffix);
+        if (isset($extra[ExtraTypes::FILES_MAP])) {
+            $parser = new \Sozo\ProjectFiles\Parser($extra[ExtraTypes::FILES_MAP], $this->pathMappingTranslations,
+                $suffix);
             return $parser;
         }
 
-        throw new \ErrorException('Unable to find deploy strategy for module: no known mapping');
+        throw new \ErrorException('Unable to find install strategy for module: no known mapping');
     }
 
     /**
@@ -302,14 +295,12 @@ class Installer extends \Composer\Installer\LibraryInstaller
     ): void {
         // cleanup marshaled files if extra->map exist
         if ($this->hasExtraMap($initial)) {
-            $initialStrategy = $this->getDeployStrategy($initial);
+            $initialStrategy = $this->getInstallStrategy($initial);
             $initialStrategy->setMappings($this->getParser($initial)->getMappings());
             try {
                 $initialStrategy->clean();
             } catch (\ErrorException $e) {
-                if ($this->io->isDebug()) {
-                    $this->io->write($e->getMessage());
-                }
+                $this->io->write($e->getMessage());
             }
         }
 

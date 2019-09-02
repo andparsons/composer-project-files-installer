@@ -1,51 +1,50 @@
 <?php declare(strict_types=1);
 
-namespace Sozo\ProjectFiles\DeployStrategy;
+namespace Sozo\ProjectFiles\InstallStrategy;
 
-abstract class DeployStrategyAbstract
+abstract class InstallStrategyAbstract implements InstallStrategyInterface
 {
     /**
      * The path mappings to map project's directories
      *
      * @var array
      */
-    protected $mappings = [];
+    private $mappings = [];
 
     /**
-     * The current mapping of the deployment iteration
+     * The current mapping of the install iteration
      *
      * @var array
      */
-    protected $currentMapping = [];
+    private $currentMapping = [];
 
     /**
-     * The List of entries which files should not get deployed
+     * The List of entries which files should not get installed
      *
      * @var array
      */
-    protected $ignoredMappings = [];
-
+    private $ignoredMappings = [];
 
     /**
      * The project base directory
      *
      * @var string
      */
-    protected $destDir;
+    private $destDir;
 
     /**
      * The module's base directory
      *
      * @var string
      */
-    protected $sourceDir;
+    private $sourceDir;
 
     /**
      * If set overrides existing files
      *
      * @var bool
      */
-    protected $isForced = false;
+    private $isForced = false;
 
     public function __construct(string $sourceDir, string $destDir)
     {
@@ -53,11 +52,8 @@ abstract class DeployStrategyAbstract
         $this->sourceDir = $sourceDir;
     }
 
-    /**
-     * Executes the deployment strategy for each mapping
-     * @throws \ErrorException
-     */
-    public function deploy(): self
+    /** @inheritDoc */
+    public function install(): InstallStrategyInterface
     {
         foreach ($this->getMappings() as $data) {
             [$source, $dest] = $data;
@@ -70,15 +66,13 @@ abstract class DeployStrategyAbstract
     /**
      * Returns the path mappings to map project's directories
      */
-    public function getMappings(): array
+    protected function getMappings(): array
     {
         return $this->mappings;
     }
 
-    /**
-     * Sets path mappings to map project's directories
-     */
-    public function setMappings(array $mappings): self
+    /** @inheritDoc */
+    public function setMappings(array $mappings): InstallStrategyInterface
     {
         $this->mappings = $mappings;
 
@@ -92,14 +86,14 @@ abstract class DeployStrategyAbstract
      *
      * @throws \ErrorException
      */
-    public function create(string $source, string $dest): bool
+    protected function create(string $source, string $dest): bool
     {
         if ($this->isDestinationIgnored($dest)) {
             return false;
         }
 
-        $sourcePath = $this->getSourceDir() . '/' . $this->removeTrailingSlash($source);
-        $destPath = $this->getDestDir() . '/' . $dest;
+        $sourcePath = $this->getSourceDir() . \DIRECTORY_SEPARATOR . $this->removeTrailingSlash($source);
+        $destPath = $this->getDestDir() . \DIRECTORY_SEPARATOR . $dest;
 
         // Create target directory if it ends with a directory separator
         if (!\file_exists($destPath) &&
@@ -118,7 +112,8 @@ abstract class DeployStrategyAbstract
             $matches = \glob($sourcePath);
             if ($matches) {
                 foreach ($matches as $match) {
-                    $newDest = \substr($destPath . '/' . \basename($match), \strlen($this->getDestDir()));
+                    $newDest = \substr($destPath . \DIRECTORY_SEPARATOR . \basename($match),
+                        \strlen($this->getDestDir()));
                     $newDest = \ltrim($newDest, ' \\/');
                     $this->create(\substr($match, \strlen($this->getSourceDir()) + 1), $newDest);
                 }
@@ -133,8 +128,8 @@ abstract class DeployStrategyAbstract
 
     protected function isDestinationIgnored(string $destination): bool
     {
-        $destination = '/' . $destination;
-        $destination = \str_replace(['/./', '//'], '/', $destination);
+        $destination = \DIRECTORY_SEPARATOR . $destination;
+        $destination = \str_replace(['/./', '//'], \DIRECTORY_SEPARATOR, $destination);
         foreach ($this->ignoredMappings as $ignored) {
             if (0 === \strpos($ignored, $destination)) {
                 return true;
@@ -171,11 +166,8 @@ abstract class DeployStrategyAbstract
      */
     abstract protected function createDelegate(string $source, string $dest): bool;
 
-    /**
-     * Removes the module's files in the given path from the target dir
-     * @throws \ErrorException
-     */
-    public function clean(): self
+    /** @inheritDoc */
+    public function clean(): InstallStrategyInterface
     {
         foreach ($this->getMappings() as $data) {
             [$source, $dest] = $data;
@@ -190,10 +182,10 @@ abstract class DeployStrategyAbstract
      *
      * @throws \ErrorException
      */
-    public function remove(string $source, string $dest): void
+    protected function remove(string $source, string $dest): void
     {
-        $sourcePath = $this->getSourceDir() . '/' . $this->removeTrailingSlash($source);
-        $destPath = $this->getDestDir() . '/' . $dest;
+        $sourcePath = $this->getSourceDir() . \DIRECTORY_SEPARATOR . $this->removeTrailingSlash($source);
+        $destPath = $this->getDestDir() . \DIRECTORY_SEPARATOR . $dest;
 
         // If source doesn't exist, check if it's a glob expression, otherwise we have nothing we can do
         if (!\file_exists($sourcePath)) {
@@ -202,14 +194,14 @@ abstract class DeployStrategyAbstract
         }
 
         if (\file_exists($sourcePath) && \is_dir($sourcePath)) {
-            $this->removeContentOfCategory($sourcePath . '/*', $destPath);
+            $this->removeContentOfCategory($sourcePath . \DIRECTORY_SEPARATOR . '*', $destPath);
             @\rmdir($destPath);
             return;
         }
 
         // MP Avoid removing whole folders in case the file is not 100% well-written
         if (\basename($sourcePath) !== \basename($destPath)) {
-            $destPath .= '/' . \basename($source);
+            $destPath .= \DIRECTORY_SEPARATOR . \basename($source);
         }
         self::rmdirRecursive($destPath);
     }
@@ -228,7 +220,7 @@ abstract class DeployStrategyAbstract
                 if (\preg_match("#/\.{1,2}$#", $match)) {
                     continue;
                 }
-                $newDest = \substr($destPath . '/' . \basename($match), \strlen($this->getDestDir()));
+                $newDest = \substr($destPath . \DIRECTORY_SEPARATOR . \basename($match), \strlen($this->getDestDir()));
                 $newDest = \ltrim($newDest, ' \\/');
                 $this->remove(\substr($match, \strlen($this->getSourceDir()) + 1), $newDest);
             }
@@ -242,7 +234,7 @@ abstract class DeployStrategyAbstract
     /**
      * Recursively removes the specified directory or file
      */
-    public static function rmdirRecursive(string $dir): void
+    protected static function rmdirRecursive(string $dir): void
     {
         if (\is_dir($dir)) {
             (new \Composer\Util\Filesystem())->removeDirectory($dir);
@@ -256,9 +248,9 @@ abstract class DeployStrategyAbstract
     /**
      * Remove an empty directory branch up to $stopDir, or stop at the first non-empty parent
      */
-    public function rmEmptyDirsRecursive(string $dir, string $stopDir = ''): void
+    protected function rmEmptyDirsRecursive(string $dir, string $stopDir = ''): void
     {
-        $absoluteDir = $this->getDestDir() . '/' . $dir;
+        $absoluteDir = $this->getDestDir() . \DIRECTORY_SEPARATOR . $dir;
         if (\is_dir($absoluteDir)) {
             /** @var \RecursiveDirectoryIterator $iterator */
             $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($absoluteDir),
@@ -281,7 +273,7 @@ abstract class DeployStrategyAbstract
             if (@\rmdir($absoluteDir)) {
                 // If the parent directory doesn't match the $stopDir and it's empty, remove it, too
                 $parentDir = \dirname($dir);
-                $absoluteParentDir = $this->getDestDir() . '/' . $parentDir;
+                $absoluteParentDir = $this->getDestDir() . \DIRECTORY_SEPARATOR . $parentDir;
                 if (!empty($stopDir) || (\realpath($stopDir) !== \realpath($absoluteParentDir))) {
                     // Remove the parent directory if it is empty
                     $this->rmEmptyDirsRecursive($parentDir);
@@ -290,18 +282,24 @@ abstract class DeployStrategyAbstract
         }
     }
 
+    /** @inheritDoc */
+    public function setIgnoredMappings(array $ignoredMappings): InstallStrategyInterface
+    {
+        $this->ignoredMappings = $ignoredMappings;
+
+        return $this;
+    }
+
     /**
      * If set overrides existing files
      */
-    public function isForced(): bool
+    protected function isForced(): bool
     {
         return $this->isForced;
     }
 
-    /**
-     * Setter for isForced property
-     */
-    public function setIsForced($forced = true): self
+    /** @inheritDoc */
+    public function setIsForced($forced = true): InstallStrategyInterface
     {
         $this->isForced = (bool)$forced;
 
@@ -309,29 +307,19 @@ abstract class DeployStrategyAbstract
     }
 
     /**
-     * Gets the current mapping used on the deployment iteration
+     * Gets the current mapping used on the install iteration
      */
-    public function getCurrentMapping(): array
+    protected function getCurrentMapping(): array
     {
         return $this->currentMapping;
     }
 
     /**
-     * Sets the current mapping used on the deployment iteration
+     * Sets the current mapping used on the install iteration
      */
-    public function setCurrentMapping(array $mapping): self
+    protected function setCurrentMapping(array $mapping): self
     {
         $this->currentMapping = $mapping;
-
-        return $this;
-    }
-
-    /**
-     * sets the current ignored mappings
-     */
-    public function setIgnoredMappings(array $ignoredMappings): self
-    {
-        $this->ignoredMappings = $ignoredMappings;
 
         return $this;
     }

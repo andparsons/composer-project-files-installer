@@ -1,41 +1,31 @@
 <?php declare(strict_types=1);
 
-namespace Sozo\ProjectFiles\DeployStrategy;
+namespace Sozo\ProjectFiles\InstallStrategy;
 
-class Symlink extends DeployStrategyAbstract
+class Symlink extends InstallStrategyAbstract
 {
     /**
      * Creates a symlink with lots of error-checking
      *
      * @throws \ErrorException
      */
-    public function createDelegate(string $source, string $dest): bool
+    protected function createDelegate(string $source, string $dest): bool
     {
-        $sourcePath = $this->getSourceDir() . '/' . $this->removeTrailingSlash($source);
-        $destPath = $this->getDestDir() . '/' . $this->removeTrailingSlash($dest);
+        $filesystem = new \Composer\Util\Filesystem();
+        $sourcePath = $this->getSourceDir() . \DIRECTORY_SEPARATOR . $this->removeTrailingSlash($source);
+        $destPath = $this->getDestDir() . \DIRECTORY_SEPARATOR . $this->removeTrailingSlash($dest);
 
         if (!\is_file($sourcePath) && !\is_dir($sourcePath)) {
             throw new \ErrorException(\sprintf('Could not find path %s', $sourcePath));
         }
 
-
-        // Symlink already exists
-        if (\is_link($destPath)) {
-            if (\realpath(\readlink($destPath)) === \realpath($sourcePath)) {
-                // .. and is equal to current source-link
-                return true;
-            }
-            \unlink($destPath);
+        if ($filesystem->isSymlinkedDirectory($destPath)) {
+            $filesystem->removeDirectory($destPath);
         }
 
         // Create all directories up to one below the target if they don't exist
         $destDir = \dirname($destPath);
-        if (!\file_exists($destDir)) {
-            /** @noinspection NestedPositiveIfStatementsInspection */
-            if (!\mkdir($destDir, 0777, true) && !\is_dir($destDir)) {
-                throw new \RuntimeException(\sprintf('Directory "%s" was not created', $destDir));
-            }
-        }
+        $filesystem->ensureDirectoryExists($destDir);
 
         // Handle source to dir linking,
         if (\file_exists($destPath) && \is_dir($destPath)) {
@@ -47,7 +37,7 @@ class Symlink extends DeployStrategyAbstract
                         $dest));
                 }
             } else {
-                $destPath .= '/' . \basename($source);
+                $destPath .= \DIRECTORY_SEPARATOR . \basename($source);
             }
             return $this->create($source, \substr($destPath, \strlen($this->getDestDir()) + 1));
         }
@@ -59,20 +49,12 @@ class Symlink extends DeployStrategyAbstract
         if (\file_exists($destPath)) {
             if ($this->isForced()) {
                 \unlink($destPath);
-            } else {
-                throw new \ErrorException(\sprintf('Target %s already exists and is not a symlink (set extra.files-force to override)',
-                    $dest));
             }
         }
 
         // Create symlink
         if (false === \symlink($sourcePath, $destPath)) {
             throw new \ErrorException(\sprintf('An error occurred while creating symlink %s', $sourcePath));
-        }
-
-        // Check we where able to create the symlink
-        if (false === $destPath = \readlink($destPath)) {
-            throw new \ErrorException(\sprintf('Symlink %s points to target %s', $destPath, $destPath));
         }
 
         return true;

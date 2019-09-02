@@ -2,43 +2,53 @@
 
 namespace Sozo\ProjectFiles;
 
-use Sozo\ProjectFiles\Deploy\Manager\Entry;
-use Sozo\ProjectFiles\DeployStrategy\Copy;
+use Sozo\ProjectFiles\Installer\InstanceInterface;
 
-class DeployManager
+class Installer implements InstallerInterface
 {
-    /**
-     * @var Entry[]
-     */
-    protected $packages = [];
-
     /**
      * @var \Composer\IO\IOInterface
      */
-    protected $io;
+    private $io;
+
+    /**
+     * @var InstanceInterface[]
+     */
+    private $packages = [];
 
     /**
      * an array with package names as key and priorities as value
      *
      * @var array
      */
-    protected $sortPriority = [];
+    private $sortPriority = [];
 
     public function __construct(\Composer\IO\IOInterface $io)
     {
         $this->io = $io;
     }
 
-    public function addPackage(Entry $package): void
+    /** @inheritDoc */
+    public function addPackage(InstanceInterface $package): void
     {
         $this->packages[] = $package;
 
         return;
     }
 
-    public function setSortPriority($priorities): void
+    /** @inheritDoc */
+    public function doInstall(): void
     {
-        $this->sortPriority = $priorities;
+        $this->sortPackages();
+
+        /** @var InstanceInterface $package */
+        foreach ($this->packages as $package) {
+            try {
+                $package->getInstallStrategy()->install();
+            } catch (\ErrorException $e) {
+                $this->io->write($e->getMessage());
+            }
+        }
 
         return;
     }
@@ -48,8 +58,6 @@ class DeployManager
      *
      * Highest priority first.
      * Copy gets per default higher priority then others
-     *
-     * @return array
      */
     protected function sortPackages(): array
     {
@@ -69,38 +77,25 @@ class DeployManager
     }
 
     /**
-     * Determine the priority in which the package should be deployed
+     * Determine the priority in which the package should be installed
      */
-    private function getPackagePriority(Entry $package): int
+    protected function getPackagePriority(InstanceInterface $package): int
     {
         if (isset($this->sortPriority[$package->getPackageName()])) {
             return $this->sortPriority[$package->getPackageName()];
         }
 
-        if ($package->getDeployStrategy() instanceof Copy) {
+        if ($package->getInstallStrategy() instanceof \Sozo\ProjectFiles\InstallStrategy\Copy) {
             return 101;
         }
 
         return 100;
     }
 
-    public function doDeploy(): void
+    /** @inheritDoc */
+    public function setSortPriority($priorities): void
     {
-        $this->sortPackages();
-
-        /** @var Entry $package */
-        foreach ($this->packages as $package) {
-            if ($this->io->isDebug()) {
-                $this->io->write('start deploy for ' . $package->getPackageName());
-            }
-            try {
-                $package->getDeployStrategy()->deploy();
-            } catch (\ErrorException $e) {
-                if ($this->io->isDebug()) {
-                    $this->io->write($e->getMessage());
-                }
-            }
-        }
+        $this->sortPriority = $priorities;
 
         return;
     }

@@ -2,14 +2,17 @@
 
 namespace Sozo\ProjectFiles;
 
-class MapParser implements ParserInterface
+class Parser implements ParserInterface
 {
     /**
      * Variants on each prefix that path mappings are checked against.
      *
      * @var array
      */
-    protected $pathPrefixVariants = ['', './'];
+    private const PATH_PREFIXES = ['', './'];
+
+    /** @var array */
+    private $mappings = [];
 
     /**
      * Path mapping prefixes that need to be translated
@@ -17,12 +20,10 @@ class MapParser implements ParserInterface
      *
      * @var array
      */
-    protected $pathPrefixTranslations = [];
+    private $pathPrefixTranslations = [];
 
     /** @var string */
-    protected $pathSuffix;
-    /** @var array */
-    protected $mappings = [];
+    private $pathSuffix;
 
     public function __construct($mappings, array $translations, string $pathSuffix)
     {
@@ -30,18 +31,6 @@ class MapParser implements ParserInterface
         $this->pathSuffix = $pathSuffix;
 
         $this->setMappings($mappings);
-    }
-
-    public function getMappings(): array
-    {
-        return $this->mappings;
-    }
-
-    public function setMappings($mappings): self
-    {
-        $this->mappings = $this->translatePathMappings($mappings);
-
-        return $this;
     }
 
     /**
@@ -52,12 +41,25 @@ class MapParser implements ParserInterface
     {
         $newTranslations = [];
         foreach ($translations as $key => $value) {
-            foreach ($this->pathPrefixVariants as $variant) {
+            foreach (self::PATH_PREFIXES as $variant) {
                 $newTranslations[$variant . $key] = $value;
             }
         }
 
         return $newTranslations;
+    }
+
+    /** @inheritDoc */
+    public function getMappings(): array
+    {
+        return $this->mappings;
+    }
+
+    protected function setMappings($mappings): self
+    {
+        $this->mappings = $this->translatePathMappings($mappings);
+
+        return $this;
     }
 
     /**
@@ -68,7 +70,7 @@ class MapParser implements ParserInterface
      * that already include the public directory should always have paths starting with 'public/',
      * it should be safe to call multiple times on either.
      */
-    public function translatePathMappings(array $mappings): array
+    protected function translatePathMappings(array $mappings): array
     {
         // each element of $mappings is an array with two elements; first is
         // the source and second is the target
@@ -87,5 +89,4 @@ class MapParser implements ParserInterface
         }
         return $mappings;
     }
-
 }
