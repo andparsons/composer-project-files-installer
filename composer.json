@@ -1,5 +1,5 @@
 {
-    "name": "sozodesign/composer-project-files-installer",
+    "name": "sozo/composer-project-files-installer",
     "description": "Composer installer for SOZO files",
     "minimum-stability": "stable",
     "type": "composer-plugin",
@@ -9,7 +9,7 @@
     },
     "autoload": {
         "psr-0": {
-            "Sozo\\Composer\\ProjectFiles": "src/"
+            "Sozo\\ProjectFiles\\Composer": "src/"
         }
     },
     "extra": {
