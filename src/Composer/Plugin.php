@@ -26,18 +26,26 @@ class Plugin implements \Composer\Plugin\PluginInterface, \Composer\EventDispatc
     public static function getSubscribedEvents(): array
     {
         return [
-            \Composer\Script\ScriptEvents::POST_INSTALL_CMD => [
-                ['onNewCodeEvent', 0],
-            ],
-            \Composer\Script\ScriptEvents::POST_UPDATE_CMD => [
-                ['onNewCodeEvent', 0],
-            ]
+            \Composer\Installer\InstallerEvents::PRE_DEPENDENCIES_SOLVING => 'setAppExtras',
+            \Composer\Script\ScriptEvents::POST_INSTALL_CMD => 'onNewCodeEvent',
+            \Composer\Script\ScriptEvents::POST_UPDATE_CMD => 'onNewCodeEvent',
         ];
     }
 
     /** @noinspection PhpUnused */
+    public function setAppExtras(\Composer\Installer\InstallerEvent $event): void
+    {
+        $app = $event->getInstalledRepo()->findPackage('sozo/wp-application', '*');
+        if ($app !== null) {
+            $extra = $app->getExtra();
+            $event->getComposer()->getPackage()->setExtra($extra);
+        }
+
+    }
+
+    /** @noinspection PhpUnused */
     /** event listener is named this way, as it listens for events leading to changed code files */
-    public function onNewCodeEvent(\Composer\Script\Event $event = null): void
+    public function onNewCodeEvent(\Composer\Script\Event $event): void
     {
         $this->getInstaller()->doInstall();
 
