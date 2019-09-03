@@ -9,7 +9,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Sozo\\ProjectFiles\\Composer": "src/"
+            "Sozo\\ProjectFiles\\Composer\\": "src/"
         }
     },
     "extra": {
